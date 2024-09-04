@@ -1,0 +1,161 @@
+dataset_config {
+  data_sources {
+    tfrecords_path: "/workspace/tao-experiments/data/coco_data/tfrecord/*-of-00256"
+    image_directory_path: "/workspace/tao-experiments/data/coco_data/coco2017/"
+  }
+  image_extension: "jpg"
+  target_class_mapping {
+    key: "person"
+    value: "person"
+  }
+  validation_data_source: {
+    tfrecords_path: "/workspace/tao-experiments/data/coco_data/tfrecord/*-of-00032"
+    image_directory_path: "/workspace/tao-experiments/data/coco_data/coco2017/"
+  }
+}
+augmentation_config {
+  preprocessing {
+    output_image_width: 320
+    output_image_height: 240
+    min_bbox_width: 1.0
+    min_bbox_height: 1.0
+    enable_auto_resize: true
+    output_image_channel: 3
+  }
+  spatial_augmentation {
+    hflip_probability: 0.5
+    zoom_min: 1.0
+    zoom_max: 1.0
+    translate_max_x: 8.0
+    translate_max_y: 8.0
+  }
+  color_augmentation {
+    hue_rotation_max: 25.0
+    saturation_shift_max: 0.20000000298
+    contrast_scale_max: 0.10000000149
+    contrast_center: 0.5
+  }
+}
+postprocessing_config{
+ target_class_config{
+   key: "person"
+   value: {
+     clustering_config {
+        coverage_threshold: 0.005
+        dbscan_eps: 0.15
+        dbscan_min_samples: 1
+        minimum_bounding_box_height: 4
+     }
+   }
+ }
+}
+model_config {
+  num_layers: 34
+  pretrained_model_file: "/workspace/tao-experiments/results/detectnet_v2_spect_coco/weights/model_pruning_2.hdf5"
+  load_graph: true
+  use_batch_norm: true
+  objective_set {
+    bbox {
+      scale: 35.0
+      offset: 0.5
+    }
+    cov {
+    }
+  }
+  arch: "resnet"
+  all_projections: true
+}
+evaluation_config {
+  average_precision_mode: INTEGRATE
+  validation_period_during_training: 10
+  first_validation_epoch: 30
+  minimum_detection_ground_truth_overlap {
+    key: "person"
+    value: 0.5
+  }
+  evaluation_box_config {
+    key: "person"
+    value {
+      minimum_height: 4
+      maximum_height: 9999
+      minimum_width: 4
+      maximum_width: 9999
+    } 
+  }
+}
+cost_function_config {
+  target_classes {
+    name: "person"
+    class_weight: 1.0
+    coverage_foreground_weight: 0.005
+    objectives {
+      name: "cov"
+      initial_weight: 1.0
+      weight_target: 1.0
+    }
+    objectives {
+      name: "bbox"
+      initial_weight: 10.0
+      weight_target: 10.0
+    }
+  }
+  enable_autoweighting: False
+  max_objective_weight: 0.9999
+  min_objective_weight: 0.0001
+}
+training_config {
+  batch_size_per_gpu: 24
+  num_epochs: 120
+  enable_qat: false
+  learning_rate {
+    soft_start_annealing_schedule {
+      min_learning_rate: 5e-7
+      max_learning_rate: 5e-5
+      soft_start: 0.1
+      annealing: 0.7
+    }
+  }
+  regularizer {
+    type: NO_REG
+    weight: 3e-9
+  }
+  optimizer {
+    adam {
+      epsilon: 1e-08
+      beta1: 0.9
+      beta2: 0.999
+    }
+  }
+  cost_scaling {
+    enabled: False
+    initial_exponent: 20.0
+    increment: 0.005
+    decrement: 1.0
+  }
+  visualizer{
+    enabled: true
+    num_images: 3
+    scalar_logging_frequency: 10
+    infrequent_logging_frequency: 5
+    target_class_config {
+      key: "person"
+      value: {
+        coverage_threshold: 0.005
+      }
+    }
+  }
+  checkpoint_interval: 10
+}
+bbox_rasterizer_config {
+  target_class_config {
+    key: "person"
+    value: {
+      cov_center_x: 0.5
+      cov_center_y: 0.5
+      cov_radius_x: 0.4
+      cov_radius_y: 0.4
+      bbox_min_radius: 1.0
+    }
+  }
+  deadzone_radius: 0.67
+}
